@@ -3,7 +3,7 @@ clear all
 clc
 addpath D:\Datasets\Mnist
 addpath D:\Datasets\Cifar\cifar-10-batches-mat
-%% ======================================================================
+%% =======================================================================
 %Cargar conjunto de entrenamiento y prueba
 
 % [images,labels,~] = load_cifar10('data_batch_1.mat');
