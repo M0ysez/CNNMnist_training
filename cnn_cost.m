@@ -30,7 +30,8 @@ for imageNum = 1 : numImages
                     if k == 1 
                         channels = size(image,3);
                         for ch = 1 : channels
-                            filteredImage = conv2(image(:,:,ch), Rotated_weights{k,1}(:, :, ch,filterNum), 'valid') ;
+                            Convolution_map = padarray(image(:,:,ch), [layer(k).Padding, layer(k).Padding]);
+                            filteredImage = conv2(Convolution_map, Rotated_weights{k,1}(:, :, ch,filterNum), 'valid') ;
                             filteredImage = Subsample_Stride( filteredImage, layer(k).Stride );
                             Activations{k}(:, :, filterNum, imageNum) = Activations{k}(:, :, filterNum, imageNum) + filteredImage;
                         end
@@ -38,7 +39,8 @@ for imageNum = 1 : numImages
                     else
                         channels = size(Activations{k-1},3);
                         for ch = 1 : channels
-                            filteredImage =  conv2( Activations{k-1}(:,:,ch,imageNum), Rotated_weights{k,1}(:, :, ch,filterNum), 'valid') ;
+                            Convolution_map = padarray(Activations{k-1}(:,:,ch,imageNum), [layer(k).Padding, layer(k).Padding]);
+                            filteredImage =  conv2(Convolution_map , Rotated_weights{k,1}(:, :, ch,filterNum), 'valid') ;
                             filteredImage =  Subsample_Stride( filteredImage, layer(k).Stride ); 
                             Activations{k}(:, :, filterNum, imageNum) =  Activations{k}(:, :, filterNum, imageNum) + filteredImage;
                         end
@@ -158,11 +160,11 @@ for k = fliplr(1:inputlayer_num)
      activationType = layer(k).type; 
      switch activationType
             case 'relu'
-                errorsConvolution = Error{k+1} .* (Activations{k} > 0); % relu derivative = x > 1
+                Error{k} = Error{k+1} .* (Activations{k} > 0); % relu derivative = x > 1
             case 'sigmoid'
-                errorsConvolution = Error{k+1} .* Activations{k} .* (1 - Activations{k}); % sigmoid derivative = x .* (1 - x)
+                Error{k} = Error{k+1} .* Activations{k} .* (1 - Activations{k}); % sigmoid derivative = x .* (1 - x)
      end
-     Error{k} = errorsConvolution;
+     %Error{k} = errorsConvolution;
      
      elseif strcmp(layer(k).name , 'Conv')
      numFilters = layer(k).numFilters;
@@ -175,21 +177,28 @@ for k = fliplr(1:inputlayer_num)
             e =  Error{k+2}(:, :, filterNum, :);
             Grads{k,2}(filterNum) = sum(e(:));
         end
+        clearvars errorsConvolution
         for filterNum = 1 : numFilters
             % for filterNum = 1 : numFilters
             for imageNum = 1 : numImages
                 e = Error{k+1}(:, :, filterNum, imageNum);
                 %         e = errorsPooling(:, :, filterNum, imageNum);
-                errorsConvolution(:, :, filterNum, imageNum) = rot90(e, 2);
+                errorsConvolution(:, :, filterNum, imageNum) = Upsample_stride(rot90(e, 2),layer(k).Stride,layer(k).filterDim);
             end
         end
        
         ErrorConv = 0;
        for filterNum = 1 : numFilters
-           for ch = 1 : size(weights{k},3)
-           ErrorConv = ErrorConv  + conv2(weights{k}(:, :,ch, filterNum), errorsConvolution(:, :, filterNum, imageNum), 'full');   
+           if layer(k).Padding == 0
+               for ch = 1 : size(weights{k},3)
+                    ErrorConv = ErrorConv  + conv2(weights{k}(:, :,ch, filterNum), errorsConvolution(:, :, filterNum, imageNum), 'full');   
+               end
+           else
+               for ch = 1 : size(weights{k},3)
+                    ErrorConv = ErrorConv  + conv2( errorsConvolution(:, :, filterNum, imageNum), weights{k}(:, :,ch, filterNum), 'same');   
+               end    
            end
-           Error{k}(:,:,ch,imageNum) = ErrorConv;
+           Error{k}(:,:,ch,imageNum) = ErrorConv  / numImages;
        end 
         
        for filterNum = 1 : numFilters
