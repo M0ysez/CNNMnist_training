@@ -61,7 +61,7 @@ for e = 1:epochs
         mb_labels = labels(rp(s : min(s + minibatch - 1, end)));
         
         % evaluate the objective function on the next minibatch
-        [cost, grad] = funObj(theta, mb_data, mb_labels);
+        [cost(iteration), grad] = funObj(theta, mb_data, mb_labels);
         
         switch heuristics_learning_rate_schedule
             case 'power'
@@ -77,27 +77,27 @@ for e = 1:epochs
             end
             learning_rate = alpha ./ sqrt(1 + sum_gradients);
         end
-        if strfind(learning_rate_schedule, 'adadec')
-            oldest = mod(gradient_histories_oldest - 1, adadec_averaging_window_size) + 1;
-            if gradient_histories_oldest > adadec_averaging_window_size
-                running_sum_gradient_histories = running_sum_gradient_histories - gradient_histories{oldest};
-            end
-            gradient_histories{oldest} = grad .^ 2;
-            gradient_histories_oldest = gradient_histories_oldest + 1;
-            if isempty(running_sum_gradient_histories)
-                running_sum_gradient_histories = gradient_histories{oldest};
-                sum_gradients = running_sum_gradient_histories;
-            else
-                running_sum_gradient_histories = running_sum_gradient_histories + gradient_histories{oldest};
-                sum_gradients = options.adadec_forgetting_factor * ...
-                    sum_gradients + running_sum_gradient_histories;
-            end
-            learning_rate = alpha ./ sqrt(1 + sum_gradients);
-        end
+%         if strfind(learning_rate_schedule, 'adadec')
+%             oldest = mod(gradient_histories_oldest - 1, adadec_averaging_window_size) + 1;
+%             if gradient_histories_oldest > adadec_averaging_window_size
+%                 running_sum_gradient_histories = running_sum_gradient_histories - gradient_histories{oldest};
+%             end
+%             gradient_histories{oldest} = grad .^ 2;
+%             gradient_histories_oldest = gradient_histories_oldest + 1;
+%             if isempty(running_sum_gradient_histories)
+%                 running_sum_gradient_histories = gradient_histories{oldest};
+%                 sum_gradients = running_sum_gradient_histories;
+%             else
+%                 running_sum_gradient_histories = running_sum_gradient_histories + gradient_histories{oldest};
+%                 sum_gradients = options.adadec_forgetting_factor * ...
+%                     sum_gradients + running_sum_gradient_histories;
+%             end
+%             learning_rate = alpha ./ sqrt(1 + sum_gradients);
+%         end
         velocity = mom * velocity + learning_rate .* grad;
         theta = theta - velocity;
         
-        fprintf('Epoch %d: Cost on iteration %d is %f\n', e, iteration, cost);
+        fprintf('Epoch %d: Cost on iteration %d is %f\n', e, iteration, cost(iteration));
         toc;
 
     end;
@@ -109,7 +109,8 @@ for e = 1:epochs
 end;
 
 opttheta = theta;
-
+figure()
+plot(cost)
 save(options.test_results_save_file, 'test_results');
 
 end
